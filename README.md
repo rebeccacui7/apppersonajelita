@@ -6,6 +6,8 @@
 
 完整设计见 👉 [docs/DESIGN.md](docs/DESIGN.md)
 
+测试数据与体验路线见 👉 [docs/TEST_GUIDE.md](docs/TEST_GUIDE.md)
+
 ## 快速开始
 
 ### 方式一：Docker（推荐体验）
