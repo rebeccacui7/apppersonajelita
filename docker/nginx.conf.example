@@ -1,0 +1,20 @@
+# Nginx + PHP-FPM 部署示例
+server {
+    listen 80;
+    server_name oa.example.com;
+    root /path/to/project/public;   # 只暴露 public 目录
+    index index.php;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass   127.0.0.1:9000;   # 或 unix:/run/php/php8.0-fpm.sock
+        fastcgi_index  index.php;
+        fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include        fastcgi_params;
+    }
+
+    location ~ /\. { deny all; }
+}

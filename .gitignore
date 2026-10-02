@@ -1,0 +1,9 @@
+/config/config.local.php
+/storage/logs/*
+!/storage/logs/.gitkeep
+/vendor/
+.DS_Store
+.idea/
+.vscode/
+*.log
+.env
