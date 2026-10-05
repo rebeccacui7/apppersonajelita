@@ -124,3 +124,25 @@ JOIN sys_menu m ON m.id = rm.menu_id WHERE m.parent_id IS NOT NULL;
 INSERT IGNORE INTO sys_role_menu (role_id, menu_id)
 SELECT DISTINCT rm.role_id, m.parent_id FROM sys_role_menu rm
 JOIN sys_menu m ON m.id = rm.menu_id WHERE m.parent_id IS NOT NULL;
+
+-- 执行管理菜单：停用旧「项目列表 / 任务」，新增 4 张表
+UPDATE sys_menu SET status = 0 WHERE id IN (31, 311, 312, 32, 321, 322);
+
+INSERT IGNORE INTO sys_menu (id, parent_id, name, type, perm, path, icon, sort) VALUES
+ (33,  30, '签证表',     2, 'visa.view',      '/exec/visas',     '', 3),
+ (331, 33, '新增/编辑',  3, 'visa.edit',      '', '', 1),
+ (332, 33, '删除',       3, 'visa.delete',    '', '', 2),
+ (34,  30, '公司注册表', 2, 'company.view',   '/exec/companies', '', 4),
+ (341, 34, '新增/编辑',  3, 'company.edit',   '', '', 1),
+ (342, 34, '删除',       3, 'company.delete', '', '', 2),
+ (35,  30, '供应商应付', 2, 'bizpay.view',    '/exec/payables',  '', 5),
+ (351, 35, '编辑/付款/退回', 3, 'bizpay.edit', '', '', 1),
+ (36,  30, '完成项目',   2, 'bizdone.view',   '/exec/done',      '', 6),
+ (361, 36, '撤回到应付', 3, 'bizdone.revert', '', '', 1);
+
+-- 授权：管理员全部；项目经理办理业务；财务负责付款；销售/采购只读
+INSERT IGNORE INTO sys_role_menu (role_id, menu_id) SELECT 1, id FROM sys_menu WHERE id IN (30, 33, 331, 332, 34, 341, 342, 35, 351, 36, 361);
+INSERT IGNORE INTO sys_role_menu (role_id, menu_id) SELECT 3, id FROM sys_menu WHERE id IN (30, 33, 331, 332, 34, 341, 342, 35, 36);
+INSERT IGNORE INTO sys_role_menu (role_id, menu_id) SELECT 4, id FROM sys_menu WHERE id IN (30, 33, 34, 35, 351, 36, 361);
+INSERT IGNORE INTO sys_role_menu (role_id, menu_id) SELECT 2, id FROM sys_menu WHERE id IN (30, 33, 34);
+INSERT IGNORE INTO sys_role_menu (role_id, menu_id) SELECT 5, id FROM sys_menu WHERE id IN (30, 35, 36);

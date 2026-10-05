@@ -406,4 +406,51 @@ CREATE TABLE sup_purchase (
   KEY idx_project (project_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='采购订单';
 
+-- ---------------------------------------------------------------- 执行管理（签证/公司注册）与附件
+-- 执行业务：签证 / 公司注册 共用一张表，按 biz_type + stage 划分四个列表
+--   stage 1 在途（签证表/公司注册表）→ 2 供应商应付 → 3 完成项目
+DROP TABLE IF EXISTS exec_business;
+CREATE TABLE exec_business (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  biz_type      TINYINT NOT NULL COMMENT '1签证 2公司注册',
+  stage         TINYINT NOT NULL DEFAULT 1 COMMENT '1在途 2供应商应付 3完成项目',
+  group_name    VARCHAR(255) NOT NULL COMMENT '业务群名',
+  contact_name  VARCHAR(255) NOT NULL DEFAULT '' COMMENT '对接人',
+  business      VARCHAR(255) NOT NULL DEFAULT '' COMMENT '具体业务',
+  applicant     VARCHAR(255) NOT NULL DEFAULT '' COMMENT '申请对象（签证）',
+  start_date    DATE NULL,
+  end_date      DATE NULL,
+  supplier_id   INT UNSIGNED NULL COMMENT '供应商',
+  files         TEXT NULL COMMENT '交付文件：sys_file.file_key 的 JSON 数组',
+  status        TINYINT NOT NULL DEFAULT 1 COMMENT '办理/业务状态 1待办理 2办理中 3已完成',
+  completed_at  DATETIME NULL COMMENT '业务完成时间（进入供应商应付）',
+  pay_amount    DECIMAL(14,2) NULL COMMENT '应付供应商金额',
+  pay_status    TINYINT NOT NULL DEFAULT 1 COMMENT '1待付款 2已付款',
+  paid_date     DATE NULL COMMENT '付款日期（进入完成项目）',
+  pay_remark    VARCHAR(255) NOT NULL DEFAULT '',
+  created_by    INT UNSIGNED NULL,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at    DATETIME NULL,
+  PRIMARY KEY (id),
+  KEY idx_type_stage (biz_type, stage),
+  KEY idx_stage (stage, pay_status),
+  KEY idx_supplier (supplier_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='执行业务（签证/公司注册）';
+
+-- 附件
+DROP TABLE IF EXISTS sys_file;
+CREATE TABLE sys_file (
+  id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  file_key       CHAR(32) NOT NULL COMMENT '随机下载标识',
+  original_name  VARCHAR(255) NOT NULL,
+  path           VARCHAR(255) NOT NULL COMMENT '相对 storage/ 的路径',
+  ext            VARCHAR(16) NOT NULL DEFAULT '',
+  size           INT UNSIGNED NOT NULL DEFAULT 0,
+  created_by     INT UNSIGNED NULL,
+  created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_key (file_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='上传文件';
+
 SET FOREIGN_KEY_CHECKS = 1;

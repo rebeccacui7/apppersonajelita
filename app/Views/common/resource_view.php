@@ -10,31 +10,41 @@
     <colgroup><col width="120"><col><col width="120"><col></colgroup>
     <tbody>
     <?php
+    // $cells: [标签, 已转义的 HTML, 是否整行]
     $cells = [];
     foreach ($fields as $k => $f) {
+        if ($f['type'] === 'checkbox') {
+            continue;
+        }
+        if ($f['type'] === 'file') {
+            $links = array_map(
+                fn($fi) => '<a class="link" target="_blank" href="' . e(url('files/download', ['key' => $fi['key']])) . '">' . e($fi['name']) . '</a>',
+                $row[$k . '__files'] ?? []
+            );
+            $cells[] = [$f['label'], $links ? implode('<br>', $links) : '', true];
+            continue;
+        }
         $v = $row[$k . '__text'] ?? $row[$k] ?? '';
         if ($f['type'] === 'money' && $v !== '') {
             $v = money($v);
-        } elseif ($f['type'] === 'checkbox') {
-            continue;
         }
-        $cells[] = [$f['label'], $v, $f['type'] === 'textarea'];
+        $cells[] = [$f['label'], e($v), $f['type'] === 'textarea'];
     }
-    $cells[] = ['创建人', $row['created_by__text'] ?? '', false];
-    $cells[] = ['创建时间', $row['created_at'] ?? '', false];
+    $cells[] = ['创建人', e($row['created_by__text'] ?? ''), false];
+    $cells[] = ['创建时间', e($row['created_at'] ?? ''), false];
     $buf = [];
-    foreach ($cells as [$label, $v, $wide]) {
+    foreach ($cells as [$label, $html, $wide]) {
         if ($wide) {
-            if ($buf) { echo '<tr><th>' . e($buf[0]) . '</th><td colspan="3">' . e($buf[1]) . '</td></tr>'; $buf = []; }
-            echo '<tr><th>' . e($label) . '</th><td colspan="3" class="pre">' . e($v) . '</td></tr>';
+            if ($buf) { echo '<tr><th>' . e($buf[0]) . '</th><td colspan="3">' . $buf[1] . '</td></tr>'; $buf = []; }
+            echo '<tr><th>' . e($label) . '</th><td colspan="3" class="pre">' . $html . '</td></tr>';
         } elseif ($buf) {
-            echo '<tr><th>' . e($buf[0]) . '</th><td>' . e($buf[1]) . '</td><th>' . e($label) . '</th><td>' . e($v) . '</td></tr>';
+            echo '<tr><th>' . e($buf[0]) . '</th><td>' . $buf[1] . '</td><th>' . e($label) . '</th><td>' . $html . '</td></tr>';
             $buf = [];
         } else {
-            $buf = [$label, $v];
+            $buf = [$label, $html];
         }
     }
-    if ($buf) echo '<tr><th>' . e($buf[0]) . '</th><td colspan="3">' . e($buf[1]) . '</td></tr>';
+    if ($buf) echo '<tr><th>' . e($buf[0]) . '</th><td colspan="3">' . $buf[1] . '</td></tr>';
     ?>
     </tbody>
   </table>

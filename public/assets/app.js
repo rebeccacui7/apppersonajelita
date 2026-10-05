@@ -113,6 +113,8 @@
             col.templet = function (d) { return fmtMoney(d[c.field]); };
           } else if (c.type === 'date') {
             col.templet = function (d) { return esc(String(d[c.field] || '').substr(0, 10)); };
+          } else if (c.type === 'file') {
+            col.templet = function (d) { return App.fileLinks(d[c.field + '__files']); };
           } else {
             col.templet = function (d) { return esc(d[c.field]); };
           }
@@ -148,7 +150,7 @@
         });
 
         var bar = '<div>';
-        if (cfg.perms.edit) bar += '<button class="layui-btn layui-btn-sm" lay-event="add"><i class="layui-icon layui-icon-add-1"></i> 新增</button>';
+        if (cfg.perms.create) bar += '<button class="layui-btn layui-btn-sm" lay-event="add"><i class="layui-icon layui-icon-add-1"></i> 新增</button>';
         if (cfg.perms.delete) bar += '<button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="batchDel"><i class="layui-icon layui-icon-delete"></i> 批量删除</button>';
         bar += '<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="export"><i class="layui-icon layui-icon-export"></i> 导出</button></div>';
 
@@ -243,12 +245,57 @@
       });
     },
 
+    /** 附件链接列表 HTML */
+    fileLinks: function (files) {
+      return (files || []).map(function (f) {
+        return '<a class="link" target="_blank" href="' + App.url('files/download?key=' + encodeURIComponent(f.key)) + '">' + esc(f.name) + '</a>';
+      }).join('，');
+    },
+
+    /** 初始化表单中的附件字段（多文件上传、移除） */
+    initFileFields: function (scope) {
+      var $ = layui.$;
+      $(scope).find('.file-field').each(function () {
+        var $box = $(this), $input = $box.find('input[type=hidden]'), $list = $box.find('.file-list');
+        if ($box.attr('data-readonly') === '1') return;
+        var sync = function () {
+          var keys = $list.find('li').map(function () { return $(this).attr('data-key'); }).get();
+          $input.val(JSON.stringify(keys));
+        };
+        $list.on('click', '.file-del', function () { $(this).closest('li').remove(); sync(); });
+        layui.upload.render({
+          elem: $box.find('.file-upload-btn')[0],
+          url: App.url('files/upload'),
+          field: 'file',
+          accept: 'file',
+          exts: $box.attr('data-exts'),
+          multiple: true,
+          size: 20480,
+          headers: { 'X-CSRF-Token': meta('csrf-token'), 'X-Requested-With': 'XMLHttpRequest' },
+          before: function () { layui.layer.load(2); },
+          allDone: function () { layui.layer.closeAll('loading'); },
+          done: function (res) {
+            if (res.code === 0) {
+              var url = App.url('files/download?key=' + encodeURIComponent(res.data.key));
+              $list.append('<li data-key="' + esc(res.data.key) + '"><i class="layui-icon layui-icon-file"></i> <a href="' + url + '" target="_blank">' +
+                esc(res.data.name) + '</a> <i class="layui-icon layui-icon-close file-del" title="移除"></i></li>');
+              sync();
+            } else {
+              layui.layer.msg(res.msg || '上传失败', { icon: 2 });
+            }
+          },
+          error: function () { layui.layer.closeAll('loading'); layui.layer.msg('上传失败，请重试', { icon: 2 }); }
+        });
+      });
+    },
+
     /* ------------------------------------------------------------ 通用表单页 */
     formPage: function () {
-      layui.use(['form', 'layer'], function () {
+      layui.use(['form', 'layer', 'upload'], function () {
         var form = layui.form;
         form.render(null, 'edit-form');
         App.renderDates(document.querySelector('.form-page'));
+        App.initFileFields(document.querySelector('.form-page'));
         form.on('submit(save)', function (d) {
           var action = d.form.getAttribute('data-action');
           App.post(action, d.field, function (res) {

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use App\Controllers;
+use App\Controllers\Exec;
 use App\Controllers\System;
 use App\Core\Router;
 
@@ -29,9 +30,22 @@ return function (Router $r): void {
     $r->resource('/opportunities', Controllers\OpportunityController::class, 'opportunity');
     $r->post('/opportunities/convert', Controllers\OpportunityController::class, 'convert', 'project.edit');
 
-    // 执行管理
+    // 执行管理：签证 / 公司注册（在途）→ 供应商应付 → 完成项目
+    $r->resource('/exec/visas', Exec\VisaController::class, 'visa');
+    $r->resource('/exec/companies', Exec\CompanyRegController::class, 'company');
+    $r->resource('/exec/payables', Exec\SupplierPayableController::class, 'bizpay');
+    $r->post('/exec/payables/pay', Exec\SupplierPayableController::class, 'pay', 'bizpay.edit');
+    $r->post('/exec/payables/back', Exec\SupplierPayableController::class, 'back', 'bizpay.edit');
+    $r->resource('/exec/done', Exec\CompletedBizController::class, 'bizdone');
+    $r->post('/exec/done/revert', Exec\CompletedBizController::class, 'revert', 'bizdone.revert');
+
+    // 旧版项目/任务（菜单已停用，保留路由以兼容历史数据与财务关联）
     $r->resource('/projects', Controllers\ProjectController::class, 'project');
     $r->resource('/tasks', Controllers\TaskController::class, 'task');
+
+    // 附件
+    $r->post('/files/upload', Controllers\FileController::class, 'upload');
+    $r->get('/files/download', Controllers\FileController::class, 'download');
 
     // 财务管理
     $r->resource('/receivables', Controllers\ReceivableController::class, 'receivable');

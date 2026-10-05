@@ -60,25 +60,54 @@ class DashboardController extends Controller
             $charts['funnel'] = $funnel;
         }
 
-        if (Auth::can('project.view')) {
-            [$w, $p] = $this->scope('manager_id');
-            $kpis[] = [
-                'label' => '进行中项目',
-                'value' => (int)DB::value("SELECT COUNT(*) FROM proj_project WHERE deleted_at IS NULL AND status = 2 $w", $p),
-                'sub'   => '全部项目 ' . (int)DB::value("SELECT COUNT(*) FROM proj_project WHERE deleted_at IS NULL $w", $p),
-            ];
-            $rows = DB::all("SELECT status, COUNT(*) n FROM proj_project WHERE deleted_at IS NULL $w GROUP BY status", $p);
-            $charts['projects'] = array_map(fn($r) => ['name' => Dict::PROJECT_STATUS[$r['status']] ?? '-', 'value' => (int)$r['n']], $rows);
+        // 执行业务：签证 / 公司注册（按权限只统计可见的业务类型）
+        $types = [];
+        if (Auth::can('visa.view')) {
+            $types[Dict::BIZ_VISA] = '签证';
         }
-
-        if (Auth::can('task.view')) {
-            $lists['tasks'] = DB::all(
-                'SELECT t.id, t.name, t.due_date, t.status, p.name project FROM proj_task t
-                 LEFT JOIN proj_project p ON p.id = t.project_id
-                 WHERE t.deleted_at IS NULL AND t.assignee_id = ? AND t.status <> 3
-                 ORDER BY t.due_date IS NULL, t.due_date LIMIT 8',
-                [Auth::id()]
+        if (Auth::can('company.view')) {
+            $types[Dict::BIZ_COMPANY] = '公司注册';
+        }
+        if ($types) {
+            $in = implode(',', array_map('intval', array_keys($types)));
+            $active = array_column(DB::all(
+                "SELECT biz_type, COUNT(*) n FROM exec_business WHERE deleted_at IS NULL AND stage = ? AND biz_type IN ($in) GROUP BY biz_type",
+                [Dict::STAGE_ACTIVE]
+            ), 'n', 'biz_type');
+            foreach ($types as $t => $name) {
+                $overdue = (int)DB::value(
+                    'SELECT COUNT(*) FROM exec_business WHERE deleted_at IS NULL AND stage = ? AND biz_type = ? AND end_date < CURDATE()',
+                    [Dict::STAGE_ACTIVE, $t]
+                );
+                $kpis[] = ['label' => "在途{$name}", 'value' => (int)($active[$t] ?? 0), 'sub' => "已超结束日期 {$overdue} 件", 'warn' => $overdue > 0];
+            }
+            $lists['bizDue'] = DB::all(
+                "SELECT id, biz_type, group_name, business, end_date FROM exec_business
+                 WHERE deleted_at IS NULL AND stage = ? AND biz_type IN ($in) AND end_date IS NOT NULL AND end_date <= ?
+                 ORDER BY end_date LIMIT 8",
+                [Dict::STAGE_ACTIVE, date('Y-m-d', strtotime('+7 days'))]
             );
+        }
+        if (Auth::can('bizpay.view')) {
+            $p = DB::row(
+                'SELECT COUNT(*) n, COALESCE(SUM(pay_amount), 0) amt FROM exec_business WHERE deleted_at IS NULL AND stage = ?',
+                [Dict::STAGE_PAYABLE]
+            );
+            $kpis[] = ['label' => '待付供应商款', 'value' => '¥' . money($p['amt']), 'sub' => (int)$p['n'] . ' 笔待付款'];
+        }
+        if ($types || Auth::can('bizpay.view') || Auth::can('bizdone.view')) {
+            $c = DB::row(
+                "SELECT SUM(stage = 1 AND biz_type = 1) visa, SUM(stage = 1 AND biz_type = 2) company,
+                        SUM(stage = 2) payable, SUM(stage = 3 AND paid_date >= ?) done
+                 FROM exec_business WHERE deleted_at IS NULL",
+                [$monthStart]
+            );
+            $charts['biz'] = [
+                ['name' => '在途签证', 'value' => (int)$c['visa']],
+                ['name' => '在途公司注册', 'value' => (int)$c['company']],
+                ['name' => '待付供应商', 'value' => (int)$c['payable']],
+                ['name' => '本月完成', 'value' => (int)$c['done']],
+            ];
         }
 
         if (Auth::can('receivable.view')) {

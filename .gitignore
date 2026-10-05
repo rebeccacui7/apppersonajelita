@@ -7,3 +7,5 @@
 .vscode/
 *.log
 .env
+/storage/uploads/*
+!/storage/uploads/.gitkeep

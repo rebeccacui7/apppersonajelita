@@ -13,7 +13,7 @@ namespace App\Core;
  * 字段定义：
  *  'key' => [
  *     'label'    => '名称',
- *     'type'     => text|textarea|number|money|date|datetime|select|user|relation|password|checkbox,
+ *     'type'     => text|textarea|number|money|date|datetime|select|user|relation|password|checkbox|file,
  *     'options'  => [值 => 文本]            // select / checkbox
  *     'table'    => 'crm_customer',          // relation 关联表
  *     'display'  => 'name',                  // relation 显示列
@@ -21,6 +21,7 @@ namespace App\Core;
  *     'search'   => bool,  // 参与关键字模糊搜索
  *     'filter'   => bool,  // 列表顶部下拉筛选
  *     'virtual'  => bool,  // 非数据库列（自行在钩子里处理）
+ *     // file 类型：列存 JSON 数组（sys_file.file_key），表单为多文件上传
  *     'default'  => mixed, 'width' => int, 'sort' => bool, 'tips' => string,
  *  ]
  */
@@ -41,6 +42,10 @@ abstract class ResourceController extends Controller
     /** 列表日期区间筛选所依据的字段 */
     protected ?string $dateField = null;
     protected string $formWidth = '760px';
+    /** false 时隐藏「新增」，只能编辑由其他流程产生的数据 */
+    protected bool $allowCreate = true;
+    /** 钩子里可设置，作为保存成功的提示语 */
+    protected ?string $saveMessage = null;
 
     private ?array $fieldCache = null;
 
@@ -83,6 +88,7 @@ abstract class ResourceController extends Controller
             'actions'  => $actions,
             'formWidth'=> $this->formWidth,
             'perms'    => [
+                'create' => !$this->readonly && $this->allowCreate && Auth::can($this->perm . '.edit'),
                 'edit'   => !$this->readonly && Auth::can($this->perm . '.edit'),
                 'delete' => !$this->readonly && Auth::can($this->perm . '.delete'),
             ],
@@ -115,6 +121,7 @@ abstract class ResourceController extends Controller
             $totals = array_map(fn($v) => money($v), $totals);
         }
 
+        $this->preloadFiles($rows);
         Response::json([
             'code' => 0, 'msg' => '', 'count' => $count,
             'data' => array_map(fn($r) => $this->decorate($r), $rows),
@@ -126,6 +133,7 @@ abstract class ResourceController extends Controller
     {
         [$where, $params] = $this->buildWhere();
         $rows = DB::all("SELECT {$this->selectSql()} FROM `{$this->table}` t WHERE $where ORDER BY {$this->orderSql()} LIMIT 10000", $params);
+        $this->preloadFiles($rows);
         $fields = array_filter($this->getFields(), fn($f) => !$f['virtual'] && $f['type'] !== 'password');
 
         $header = ['ID'];
@@ -173,6 +181,9 @@ abstract class ResourceController extends Controller
             if ($f['form']) {
                 $f['options'] = $this->options($k);
                 $fields[$k] = $f;
+                if ($f['type'] === 'file') {
+                    $row[$k . '__files'] = self::fileInfo(self::fileKeys($row[$k] ?? null));
+                }
             }
         }
         $this->render('common/resource_form', [
@@ -218,6 +229,9 @@ abstract class ResourceController extends Controller
             throw new BizException('该数据为只读');
         }
         $id = Request::int('id');
+        if (!$id && !$this->allowCreate) {
+            throw new BizException('该列表不支持直接新增');
+        }
         $old = null;
         if ($id) {
             $old = $this->findScoped($id);
@@ -257,7 +271,7 @@ abstract class ResourceController extends Controller
         });
 
         Logger::log($this->perm, $old ? 'update' : 'create', $id, json_encode($this->logPayload($data), JSON_UNESCAPED_UNICODE));
-        $this->success('保存成功', ['id' => $id]);
+        $this->success($this->saveMessage ?? '保存成功', ['id' => $id]);
     }
 
     public function delete(): void
@@ -326,6 +340,12 @@ abstract class ResourceController extends Controller
     protected function children(): array
     {
         return [];
+    }
+
+    /** 固定过滤条件（如按业务类型/阶段划分的视图），列表、详情、编辑、删除都受其约束 */
+    protected function baseWhere(): array
+    {
+        return ['', []];
     }
 
     /** 数据范围过滤（默认按 ownerField），可覆盖实现间接关联过滤 */
@@ -410,6 +430,24 @@ abstract class ResourceController extends Controller
                     throw new BizException($f['label'] . '选项无效');
                 }
                 return $raw;
+            case 'file':
+                $keys = json_decode($raw === '' ? '[]' : $raw, true);
+                if (!is_array($keys)) {
+                    throw new BizException($f['label'] . '数据格式错误');
+                }
+                $keys = array_values(array_unique(array_filter($keys, fn($k) => is_string($k) && preg_match('/^[a-f0-9]{32}$/', $k))));
+                if (count($keys) > 20) {
+                    throw new BizException($f['label'] . '最多 20 个文件');
+                }
+                if (!$keys) {
+                    return null;
+                }
+                $found = array_column(DB::all(
+                    'SELECT file_key FROM sys_file WHERE file_key IN (' . implode(',', array_fill(0, count($keys), '?')) . ')',
+                    $keys
+                ), 'file_key');
+                $keys = array_values(array_intersect($keys, $found));
+                return $keys ? json_encode($keys) : null;
             case 'textarea':
                 return mb_substr($raw, 0, 5000);
             default:
@@ -437,10 +475,11 @@ abstract class ResourceController extends Controller
         if ($this->softDelete) {
             $where[] = 't.deleted_at IS NULL';
         }
-        [$sql, $p] = $this->scopeWhere();
-        if ($sql !== '') {
-            $where[] = $sql;
-            array_push($params, ...$p);
+        foreach ([$this->baseWhere(), $this->scopeWhere()] as [$sql, $p]) {
+            if ($sql !== '') {
+                $where[] = $sql;
+                array_push($params, ...$p);
+            }
         }
 
         $kw = Request::str('keyword');
@@ -517,10 +556,11 @@ abstract class ResourceController extends Controller
         if ($this->softDelete) {
             $where[] = 't.deleted_at IS NULL';
         }
-        [$sql, $p] = $this->scopeWhere();
-        if ($sql !== '') {
-            $where[] = $sql;
-            array_push($params, ...$p);
+        foreach ([$this->baseWhere(), $this->scopeWhere()] as [$sql, $p]) {
+            if ($sql !== '') {
+                $where[] = $sql;
+                array_push($params, ...$p);
+            }
         }
         $select = $withText ? $this->selectSql() : 't.*';
         return DB::row("SELECT $select FROM `{$this->table}` t WHERE " . implode(' AND ', $where), $params);
@@ -532,6 +572,10 @@ abstract class ResourceController extends Controller
         foreach ($this->getFields() as $k => $f) {
             if ($f['type'] === 'select' && array_key_exists($k, $row)) {
                 $row[$k . '__text'] = $f['options'][(string)$row[$k]] ?? '';
+            } elseif ($f['type'] === 'file' && array_key_exists($k, $row)) {
+                $files = self::fileInfo(self::fileKeys($row[$k]));
+                $row[$k . '__files'] = $files;
+                $row[$k . '__text'] = implode('、', array_column($files, 'name'));
             }
         }
         foreach (array_merge($this->hidden, ['password']) as $h) {
@@ -546,6 +590,55 @@ abstract class ResourceController extends Controller
             unset($data[$h]);
         }
         return $data;
+    }
+
+    /* ------------------------------------------------------------------ 附件 */
+
+    /** @var array<string, array{key:string,name:string,size:int}> */
+    private static array $fileCache = [];
+
+    protected static function fileKeys(mixed $value): array
+    {
+        $keys = is_string($value) && $value !== '' ? json_decode($value, true) : [];
+        return is_array($keys) ? array_values(array_filter($keys, 'is_string')) : [];
+    }
+
+    /** 根据 file_key 取文件名等信息（带缓存） */
+    protected static function fileInfo(array $keys): array
+    {
+        $missing = array_values(array_diff($keys, array_keys(self::$fileCache)));
+        if ($missing) {
+            $rows = DB::all(
+                'SELECT file_key, original_name, size FROM sys_file WHERE file_key IN (' . implode(',', array_fill(0, count($missing), '?')) . ')',
+                $missing
+            );
+            foreach ($rows as $r) {
+                self::$fileCache[$r['file_key']] = ['key' => $r['file_key'], 'name' => $r['original_name'], 'size' => (int)$r['size']];
+            }
+        }
+        $out = [];
+        foreach ($keys as $k) {
+            if (isset(self::$fileCache[$k])) {
+                $out[] = self::$fileCache[$k];
+            }
+        }
+        return $out;
+    }
+
+    /** 列表/导出前批量预取附件信息，避免逐行查询 */
+    protected function preloadFiles(array $rows): void
+    {
+        $keys = [];
+        foreach ($this->getFields() as $k => $f) {
+            if ($f['type'] === 'file' && !$f['virtual']) {
+                foreach ($rows as $r) {
+                    array_push($keys, ...self::fileKeys($r[$k] ?? null));
+                }
+            }
+        }
+        if ($keys) {
+            self::fileInfo(array_values(array_unique($keys)));
+        }
     }
 
     /** 生成业务编号：前缀 + 日期 + 当日序号，如 PRJ20261002001 */

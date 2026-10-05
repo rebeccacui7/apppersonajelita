@@ -31,24 +31,24 @@ use App\Dict;
         <div class="layui-card-body"><div id="chart-funnel" class="chart"></div></div></div>
     </div>
   <?php endif; ?>
-  <?php if (isset($charts['projects'])): ?>
+  <?php if (isset($charts['biz'])): ?>
     <div class="layui-col-xs12 layui-col-md4">
-      <div class="layui-card"><div class="layui-card-header">项目状态分布</div>
-        <div class="layui-card-body"><div id="chart-projects" class="chart"></div></div></div>
+      <div class="layui-card"><div class="layui-card-header">执行业务概况</div>
+        <div class="layui-card-body"><div id="chart-biz" class="chart"></div></div></div>
     </div>
   <?php endif; ?>
 
-  <?php if (isset($lists['tasks'])): ?>
+  <?php if (isset($lists['bizDue'])): ?>
     <div class="layui-col-xs12 layui-col-md4">
-      <div class="layui-card"><div class="layui-card-header">我的待办任务</div>
+      <div class="layui-card"><div class="layui-card-header">7 天内到期的在途业务</div>
         <div class="layui-card-body">
           <ul class="dash-list">
-            <?php foreach ($lists['tasks'] as $t):
-                $late = $t['due_date'] && $t['due_date'] < date('Y-m-d'); ?>
-              <li><span><?= e($t['name']) ?> <span class="muted">· <?= e($t['project']) ?></span></span>
-                <span class="muted"<?= $late ? ' style="color:#ff5722"' : '' ?>><?= e($t['due_date'] ?: '无截止') ?> <?= e(Dict::TASK_STATUS[$t['status']] ?? '') ?></span></li>
+            <?php foreach ($lists['bizDue'] as $b):
+                $late = $b['end_date'] < date('Y-m-d'); ?>
+              <li><span><?= e($b['group_name']) ?> <span class="muted">· <?= e(Dict::BIZ_TYPE[$b['biz_type']] ?? '') ?> <?= e($b['business']) ?></span></span>
+                <span class="muted"<?= $late ? ' style="color:#ff5722"' : '' ?>><?= e($b['end_date']) ?></span></li>
             <?php endforeach; ?>
-            <?php if (!$lists['tasks']): ?><li class="muted">暂无待办任务</li><?php endif; ?>
+            <?php if (!$lists['bizDue']): ?><li class="muted">暂无</li><?php endif; ?>
           </ul>
         </div></div>
     </div>
@@ -120,11 +120,12 @@ use App\Dict;
         label: { position: 'inside', formatter: '{b} {c}' }, data: data.funnel }]
     });
   }
-  if (data.projects) {
-    init('chart-projects', {
+  if (data.biz) {
+    init('chart-biz', {
       tooltip: { trigger: 'item' },
       legend: { bottom: 0 },
-      series: [{ type: 'pie', radius: ['40%', '68%'], center: ['50%', '45%'], data: data.projects }]
+      color: ['#1e9fff', '#16b777', '#ff9f43', '#a0a7b4'],
+      series: [{ type: 'pie', radius: ['40%', '68%'], center: ['50%', '45%'], label: { formatter: '{b}\n{c}' }, data: data.biz }]
     });
   }
   window.addEventListener('resize', function () { charts.forEach(function (c) { c.resize(); }); });

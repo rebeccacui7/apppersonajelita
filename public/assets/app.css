@@ -25,6 +25,12 @@ a.link { color: #1e9fff; cursor: pointer; }
 .form-page .layui-form-label.required::before { content: '*'; color: #ff5722; margin-right: 3px; }
 .form-footer { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 24px; background: #fff; border-top: 1px solid #eee; text-align: right; z-index: 10; }
 
+/* 附件 */
+.file-list { margin: 0 0 6px; padding: 0; list-style: none; }
+.file-list li { padding: 4px 0; display: flex; align-items: center; gap: 6px; word-break: break-all; }
+.file-list .file-del { color: #ff5722; cursor: pointer; }
+.file-field .layui-form-mid { padding: 9px 0 !important; }
+
 /* 详情页 */
 .view-page { padding: 16px 20px; }
 .view-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }

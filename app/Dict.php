@@ -27,6 +27,23 @@ final class Dict
     public const TASK_STATUS    = [1 => '待开始', 2 => '进行中', 3 => '已完成', 4 => '已延期'];
     public const PRIORITY       = [1 => '高', 2 => '中', 3 => '低'];
 
+    // ---- 执行业务（签证 / 公司注册）
+    public const BIZ_TYPE   = [1 => '签证', 2 => '公司注册'];
+    public const BIZ_VISA    = 1;
+    public const BIZ_COMPANY = 2;
+    /** 办理状态 / 业务状态；选「已完成」后自动转入供应商应付 */
+    public const BIZ_STATUS = [1 => '待办理', 2 => '办理中', 3 => '已完成'];
+    public const BIZ_STATUS_DOING = 2;
+    public const BIZ_STATUS_DONE  = 3;
+    /** 业务阶段：决定数据出现在哪张表 */
+    public const BIZ_STAGE  = [1 => '在途', 2 => '供应商应付', 3 => '完成项目'];
+    public const STAGE_ACTIVE  = 1;
+    public const STAGE_PAYABLE = 2;
+    public const STAGE_DONE    = 3;
+    public const BIZ_PAY_STATUS = [1 => '待付款', 2 => '已付款'];
+    public const BIZ_UNPAID = 1;
+    public const BIZ_PAID   = 2;
+
     // ---- 财务
     public const PAY_STATUS     = [1 => '未结清', 2 => '部分结清', 3 => '已结清'];
     public const TRADE_TYPE     = [1 => '收入', 2 => '支出'];

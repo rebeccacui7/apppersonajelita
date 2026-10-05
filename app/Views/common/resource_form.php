@@ -6,7 +6,7 @@ $val = fn(string $k) => $row[$k] ?? '';
   <input type="hidden" name="id" value="<?= (int)$id ?>">
   <div class="layui-row layui-col-space10">
   <?php foreach ($fields as $k => $f):
-      $wide = in_array($f['type'], ['textarea', 'checkbox'], true);
+      $wide = in_array($f['type'], ['textarea', 'checkbox', 'file'], true);
       $disabled = $f['readonly'] ? 'disabled' : '';
       $req = $f['required'] ? 'lay-verify="required"' : '';
   ?>
@@ -33,6 +33,27 @@ $val = fn(string $k) => $row[$k] ?? '';
               <?php foreach ($f['options'] as $v => $t): ?>
                 <input type="checkbox" name="<?= e($k) ?>[<?= e($v) ?>]" title="<?= e($t) ?>" lay-skin="primary" <?= in_array((string)$v, $checked, true) ? 'checked' : '' ?> <?= $disabled ?>>
               <?php endforeach; ?>
+              <?php break;
+            case 'file':
+              $files = $row[$k . '__files'] ?? []; ?>
+              <div class="file-field" data-readonly="<?= $f['readonly'] ? 1 : 0 ?>" data-exts="<?= e(implode('|', \App\Controllers\FileController::allowedExts())) ?>">
+                <input type="hidden" name="<?= e($k) ?>" value="<?= e(json_encode(array_column($files, 'key'))) ?>">
+                <ul class="file-list">
+                  <?php foreach ($files as $fi): ?>
+                    <li data-key="<?= e($fi['key']) ?>">
+                      <i class="layui-icon layui-icon-file"></i>
+                      <a href="<?= e(url('files/download', ['key' => $fi['key']])) ?>" target="_blank"><?= e($fi['name']) ?></a>
+                      <?php if (!$f['readonly']): ?><i class="layui-icon layui-icon-close file-del" title="移除"></i><?php endif; ?>
+                    </li>
+                  <?php endforeach; ?>
+                </ul>
+                <?php if (!$f['readonly']): ?>
+                  <button type="button" class="layui-btn layui-btn-sm layui-btn-primary file-upload-btn"><i class="layui-icon layui-icon-upload"></i> 上传文件</button>
+                  <span class="layui-text-em" style="margin-left:6px">可多选，单个不超过 20MB</span>
+                <?php elseif (!$files): ?>
+                  <div class="layui-form-mid layui-text-em">无</div>
+                <?php endif; ?>
+              </div>
               <?php break;
             case 'date':
             case 'datetime': ?>

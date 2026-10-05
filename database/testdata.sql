@@ -26,6 +26,7 @@ DELETE FROM fin_receivable  WHERE id BETWEEN 1001 AND 1999;
 DELETE FROM fin_payable     WHERE id BETWEEN 1001 AND 1999;
 DELETE FROM sup_purchase    WHERE id BETWEEN 1001 AND 1999;
 DELETE FROM sup_supplier    WHERE id BETWEEN 1001 AND 1999;
+DELETE FROM exec_business   WHERE id BETWEEN 1001 AND 1999;
 
 -- ---------------------------------------------------------------- 测试账号（密码 Test@1234）
 SET @pwd = '$2y$10$eSEaSU998DDaGWdDsSomdOtctDqNieem2FTlGZPi9H9v3CORLA6u6';
@@ -192,7 +193,10 @@ INSERT INTO sup_supplier (id, name, category, contact_name, phone, email, tax_no
  (1003, '码农部落外包工作室', 3, '吴工', '13700001003', '', '', '建设银行杭州分行', '3305 0000 0000 1003', '杭州市余杭区', 2, 1, 107, '按人月结算', 107),
  (1004, '得力办公用品商城', 4, '客服', '400-000-1004', '', '91330200MA0000004D', '', '', '线上', 1, 1, 107, '', 107),
  (1005, '速达网络设备有限公司', 1, '李经理', '13700001005', '', '', '', '', '广州市', 3, 2, 107, '交付延期两次，暂停合作', 107),
- (1006, '黑石外包服务有限公司', 3, '未知', '13700001006', '', '', '', '', '', 4, 3, 107, '质量问题严重，列入黑名单（体验：下单会被拦截）', 107);
+ (1006, '黑石外包服务有限公司', 3, '未知', '13700001006', '', '', '', '', '', 4, 3, 107, '质量问题严重，列入黑名单（体验：下单会被拦截）', 107),
+ (1007, 'PT Jaya Imigrasi 签证代理', 3, 'Andi', '+62 812-0000-1007', 'visa@jaya.example.com', '', 'Bank Mandiri', '1230 0000 1007', 'Jakarta Selatan', 1, 1, 107, '工签 / 商务签主力代理', 107),
+ (1008, 'Notaris Budi Santoso 公证处', 9, 'Budi', '+62 812-0000-1008', '', '', 'BCA', '5670 0000 1008', 'Jakarta Pusat', 2, 1, 107, '公司注册公证', 107),
+ (1009, 'PT Mitra Legal 注册代办', 3, 'Sari', '+62 812-0000-1009', 'cs@mitralegal.example.com', '', 'BNI', '8890 0000 1009', 'Jakarta Barat', 2, 1, 107, 'NIB / NPWP / BPJS 代办', 107);
 
 -- ---------------------------------------------------------------- 采购订单
 -- status 1草稿 2已下单 3已到货 4已完成 5已取消
@@ -272,6 +276,33 @@ INSERT INTO fin_expense (id, code, applicant_id, category, amount, expense_date,
  (1007, 'BXT007', 107, 5,  300.00, CURDATE() - INTERVAL 2 DAY,  NULL, '9 月话费补贴', 1, NULL, NULL, '', NULL, 107),
  (1008, 'BXT008', 106, 4,  120.00, CURDATE() - INTERVAL 1 DAY,  NULL, '税务局办事交通费（财务本人提交，需他人审批）', 1, NULL, NULL, '', NULL, 106);
 
+-- ---------------------------------------------------------------- 执行业务：签证 / 公司注册
+-- stage 1在途 2供应商应付 3完成项目 | status 1待办理 2办理中 3已完成 | pay_status 1待付款 2已付款
+INSERT INTO exec_business (id, biz_type, stage, group_name, contact_name, business, applicant, start_date, end_date, supplier_id, status, completed_at, pay_amount, pay_status, paid_date, pay_remark, created_by, created_at) VALUES
+ -- 在途签证（签证表）
+ (1001, 1, 1, '华晟矿业-印尼工签群',     '陈经理', 'KITAS 工作签证（新办）', '张伟',       CURDATE() - INTERVAL 20 DAY, CURDATE() + INTERVAL 3 DAY,  1007, 2, NULL, NULL, 1, NULL, '', 104, NOW() - INTERVAL 20 DAY),
+ (1002, 1, 1, '华晟矿业-印尼工签群',     '陈经理', 'KITAS 工作签证（新办）', '李强',       CURDATE() - INTERVAL 20 DAY, CURDATE() + INTERVAL 3 DAY,  1007, 2, NULL, NULL, 1, NULL, '', 104, NOW() - INTERVAL 20 DAY),
+ (1003, 1, 1, '远洋渔业-船员签证',       '王船长', 'C312 船员签证',          '刘海 等 6 人', CURDATE() - INTERVAL 12 DAY, CURDATE() - INTERVAL 2 DAY, 1007, 2, NULL, NULL, 1, NULL, '', 104, NOW() - INTERVAL 12 DAY),
+ (1004, 1, 1, '星河科技-商务考察',       '林晓',   'B211A 商务签证',         '陈立',       CURDATE() - INTERVAL 3 DAY,  CURDATE() + INTERVAL 10 DAY, 1007, 1, NULL, NULL, 1, NULL, '', 105, NOW() - INTERVAL 3 DAY),
+ (1005, 1, 1, '个人客户-赵女士',         '赵女士', 'VOA 落地签延期',          '赵敏',       CURDATE() - INTERVAL 1 DAY,  CURDATE() + INTERVAL 5 DAY,  NULL, 1, NULL, NULL, 1, NULL, '', 105, NOW() - INTERVAL 1 DAY),
+ (1006, 1, 1, '华晟矿业-印尼工签群',     '陈经理', 'BPJS 社保登记',           '张伟、李强', CURDATE() - INTERVAL 8 DAY,  CURDATE() + INTERVAL 20 DAY, 1009, 2, NULL, NULL, 1, NULL, '', 104, NOW() - INTERVAL 8 DAY),
+ -- 在途公司注册（公司注册表）
+ (1007, 2, 1, '新能电池-PT PMA 注册',    '黄总',   'PT PMA 外资公司设立',     '', CURDATE() - INTERVAL 30 DAY, CURDATE() + INTERVAL 15 DAY, 1008, 2, NULL, NULL, 1, NULL, '', 105, NOW() - INTERVAL 30 DAY),
+ (1008, 2, 1, '新能电池-PT PMA 注册',    '黄总',   'NIB 营业执照',            '', CURDATE() - INTERVAL 10 DAY, CURDATE() + INTERVAL 6 DAY,  1009, 1, NULL, NULL, 1, NULL, '', 105, NOW() - INTERVAL 10 DAY),
+ (1009, 2, 1, '悦享餐饮-印尼分店',       '郭磊',   '公司注册 + NPWP 税号',    '', CURDATE() - INTERVAL 25 DAY, CURDATE() - INTERVAL 1 DAY, 1009, 2, NULL, NULL, 1, NULL, '', 104, NOW() - INTERVAL 25 DAY),
+ (1010, 2, 1, '鹭岛电商-本地公司',       '谢鹏',   'PT 本地公司注册',         '', CURDATE(),                   CURDATE() + INTERVAL 30 DAY, NULL, 1, NULL, NULL, 1, NULL, '', 104, NOW()),
+ -- 供应商应付（业务已完成、待付款）
+ (1011, 1, 2, '华晟矿业-印尼工签群',     '陈经理', 'KITAS 工作签证（续签）', '王磊',       CURDATE() - INTERVAL 35 DAY, CURDATE() - INTERVAL 6 DAY,  1007, 3, NOW() - INTERVAL 6 DAY,  4500.00,  1, NULL, '', 104, NOW() - INTERVAL 35 DAY),
+ (1012, 1, 2, '远洋渔业-船员签证',       '王船长', 'C312 船员签证',          '孙涛 等 4 人', CURDATE() - INTERVAL 28 DAY, CURDATE() - INTERVAL 3 DAY, 1007, 3, NOW() - INTERVAL 3 DAY,  9600.00,  1, NULL, '', 104, NOW() - INTERVAL 28 DAY),
+ (1013, 2, 2, '宏达物流-印尼子公司',     '黄国强', 'PT PMA 外资公司设立',     '',           CURDATE() - INTERVAL 60 DAY, CURDATE() - INTERVAL 4 DAY,  1008, 3, NOW() - INTERVAL 4 DAY,  18000.00, 1, NULL, '', 105, NOW() - INTERVAL 60 DAY),
+ (1014, 2, 2, '宏达物流-印尼子公司',     '黄国强', 'BPJS 公司社保开户',       '',           CURDATE() - INTERVAL 15 DAY, CURDATE() - INTERVAL 1 DAY,  1009, 3, NOW() - INTERVAL 1 DAY,  NULL,     1, NULL, '金额待供应商确认', 105, NOW() - INTERVAL 15 DAY),
+ -- 完成项目（已付款）
+ (1015, 1, 3, '华晟矿业-印尼工签群',     '陈经理', 'KITAS 工作签证（新办）', '周杰',       CURDATE() - INTERVAL 70 DAY, CURDATE() - INTERVAL 40 DAY, 1007, 3, NOW() - INTERVAL 40 DAY, 4800.00,  2, CURDATE() - INTERVAL 35 DAY, '对公转账', 104, NOW() - INTERVAL 70 DAY),
+ (1016, 1, 3, '星河科技-商务考察',       '林晓',   'B211A 商务签证',         '陈立、林晓', CURDATE() - INTERVAL 50 DAY, CURDATE() - INTERVAL 38 DAY, 1007, 3, NOW() - INTERVAL 38 DAY, 3200.00,  2, CURDATE() - INTERVAL 30 DAY, '', 105, NOW() - INTERVAL 50 DAY),
+ (1017, 2, 3, '云帆科技-印尼办事处',     '陈立',   'PT PMA 外资公司设立',     '',           CURDATE() - INTERVAL 120 DAY, CURDATE() - INTERVAL 45 DAY, 1008, 3, NOW() - INTERVAL 45 DAY, 21000.00, 2, CURDATE() - INTERVAL 20 DAY, '', 105, NOW() - INTERVAL 120 DAY),
+ (1018, 2, 3, '云帆科技-印尼办事处',     '陈立',   'NIB + NPWP',              '',           CURDATE() - INTERVAL 44 DAY, CURDATE() - INTERVAL 20 DAY, 1009, 3, NOW() - INTERVAL 20 DAY, 6500.00,  2, CURDATE() - INTERVAL 5 DAY,  '', 105, NOW() - INTERVAL 44 DAY),
+ (1019, 1, 3, '个人客户-赵女士',         '赵女士', 'VOA 落地签',              '赵敏',       CURDATE() - INTERVAL 40 DAY, CURDATE() - INTERVAL 36 DAY, NULL, 3, NOW() - INTERVAL 36 DAY, 0.00,     2, CURDATE() - INTERVAL 2 DAY,  '无供应商成本', 105, NOW() - INTERVAL 40 DAY);
+
 -- ---------------------------------------------------------------- 汇总回写，保证数据一致
 UPDATE fin_receivable r SET received_amount = (
   SELECT COALESCE(SUM(t.amount), 0) FROM fin_transaction t WHERE t.receivable_id = r.id AND t.type = 1 AND t.deleted_at IS NULL
@@ -303,3 +334,4 @@ ALTER TABLE fin_transaction AUTO_INCREMENT = 2000;
 ALTER TABLE fin_expense     AUTO_INCREMENT = 2000;
 ALTER TABLE sup_supplier    AUTO_INCREMENT = 2000;
 ALTER TABLE sup_purchase    AUTO_INCREMENT = 2000;
+ALTER TABLE exec_business   AUTO_INCREMENT = 2000;
